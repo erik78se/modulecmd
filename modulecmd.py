@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-  
 """
 	Python wrapper to system environment modules.  Basic functions
 	include:
@@ -24,6 +23,7 @@ import os
 import sys
 import getopt
 import traceback
+import re
 
 class Modulecmd:
 
@@ -56,8 +56,8 @@ class Modulecmd:
         if os.path.exists(mod_dir):
           mod_platform = self._runsystem(os.path.join(mod_dir,"platform"))
           if self.verbose:
-            print "Looking for platform under %s" % mod_dir
-            print "Found it to be %s" % mod_platform
+            print("Looking for platform under %s" % mod_dir)
+            print("Found it to be %s" % mod_platform)
           if os.path.exists(os.path.join(mod_dir,"modulecmd.%s" % mod_platform)):
             self.modulecmd = os.path.join(mod_dir,"modulecmd.%s" % mod_platform)
     if not self.modulecmd:
@@ -66,7 +66,7 @@ class Modulecmd:
       modulepath.reverse()
     if modulepath: self.use(modulepath)
     if self.verbose:
-      print "Using modulecmd %s" % self.modulecmd
+      print("Using modulecmd %s" % self.modulecmd)
 
   def modulepaths(self):
     """
@@ -83,7 +83,7 @@ class Modulecmd:
     """
     try:
       return os.environ.get('MODULEPATH',"").split(os.pathsep)
-    except Exception,e:
+    except Exception as e:
       return []
   
   def show(self,mod):
@@ -146,9 +146,9 @@ class Modulecmd:
           testpath = os.path.join(tmpdir,realcmd)
           if os.path.isfile(testpath) or os.path.islink(testpath):
             return testpath
-        except Exception,e:
+        except Exception as e:
           traceback.print_exc()
-    except Exception,e:
+    except Exception as e:
       traceback.print_exc()
     return None
 
@@ -161,9 +161,34 @@ class Modulecmd:
     """
     try:
       return os.environ['LOADEDMODULES'].split(os.pathsep)
-    except Exception,e:
+    except Exception as e:
       return []
 
+  def avail(self):
+    """
+	Usage:
+		m.avail()
+	Returns:
+		a list of available environment modules 
+    """
+    t = self._modulecmd("%s python avail" % self.modulecmd)
+
+    lines = t.splitlines()
+    
+    r = []
+    for l in lines:
+      # Find library names and remove from list
+      library_name = re.search('( /.+? )', l)
+      if library_name:
+          skippthis = library_name.group(1)
+      else:
+        # Split lines in tokens and make them into modules
+        sl = l.split()
+        for token in sl:
+          r.append(token)
+
+    return r
+    
   def purge(self):
     """
 	Usage: 
@@ -250,24 +275,24 @@ class Modulecmd:
     nosubprocess = False
     try:
       import subprocess
-    except Exception,e:
+    except Exception as e:
       nosubprocess = True
     try:
       out = subprocess.check_output(
 		cmd,
 		stderr=subprocess.STDOUT,
 		shell=True)
-    except Exception,e:
+    except Exception as e:
       try:
         p = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE)
         out = p.stdout.read()
-      except Exception,e:
+      except Exception as e:
         try:
           i,o,e = os.popen3(cmd)
           out = o.read()
-        except Exception,e:
+        except Exception as e:
           if self.verbose:
-            print "Could not read output from '%s'" % cmd
+            print("Could not read output from '%s'" % cmd)
             traceback.print_exc()
     if out: 
       out = out.strip()
@@ -278,28 +303,28 @@ class Modulecmd:
   def _modulecmd(self,cmd):
     out = None
     cmdtype = None
-    noout_cmds = ["list","show",]
+    noout_cmds = ["list","show","avail"]
     try:
       cmdtype = cmd.strip().split()[2]
-    except Exception,e:
+    except Exception as e:
       if self.verbose:
         traceback.print_exc()
       cmdtype = None
 
     try:
       out = self._runsystem(cmd)
-    except Exception,e:
+    except Exception as e:
       if self.verbose:
         traceback.print_exc()
     if out: 
       if cmdtype not in noout_cmds:
         if self.verbose:
-          print "Calling eval on %s" % out
+          print("Calling eval on %s" % out)
         exec(out)
     elif self.verbose:
-      print "No output from '%s'" % cmd
+      print("No output from '%s'" % cmd)
     return out
   
 if __name__ == "__main__":
   m = Modulecmd(verbose=True)
-  print m.list()
+  print(m.list())
